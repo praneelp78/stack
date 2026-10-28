@@ -251,6 +251,7 @@ def summarize(spec):
         for key in ["id", "checkpoint", "arm", "placement", "training_seed", "step"]:
             frame[key] = model[key]
         frame["roles"] = ",".join(model["roles"])
+        frame["selection_retention_pass"] = model.get("selection_retention_pass", True)
         frames.append(frame)
         assert len(hashes) == 1, f"Checkpoint changed across panels: {model['id']}"
         checkpoint_manifest.append(
@@ -289,6 +290,7 @@ def summarize(spec):
                 "training_seed",
                 "step",
                 "roles",
+                "selection_retention_pass",
                 "dataset",
                 "model",
             ]
@@ -317,6 +319,7 @@ def summarize(spec):
             effect_sign_mean=("top100_effect_sign_accuracy", "mean"),
             checkpoints=("id", "nunique"),
             finite_correlations=("delta_pearson", "count"),
+            selection_retention_pass=("selection_retention_pass", "all"),
         )
         .reset_index()
     )
@@ -346,7 +349,10 @@ def summarize(spec):
                     "step",
                 ]
             }
-            | {"roles": ",".join(model["roles"])}
+            | {
+                "roles": ",".join(model["roles"]),
+                "selection_retention_pass": model.get("selection_retention_pass", True),
+            }
             for model in roster
         ]
     )
@@ -369,6 +375,7 @@ def summarize(spec):
             top4_overlap_mean=("ensemble_top4_overlap", "mean"),
             checkpoints=("id", "nunique"),
             finite_rankings=("ensemble_rho", "count"),
+            selection_retention_pass=("selection_retention_pass", "all"),
         )
         .reset_index()
     )
@@ -463,6 +470,9 @@ def summarize(spec):
         "rna_rows": len(raw),
         "gen_tonik_checkpoints": len(roster),
         "drug_generation_seeds": 3,
+        "exploratory_arms": sorted(
+            {model["arm"] for model in models if not model["selection_retention_pass"]}
+        ),
         "files": sorted(path.name for path in out.iterdir() if path.is_file()),
         "interpretation": "Ranges span training seeds, not biological replicates. GenTonik rho is computed after averaging generation scores per compound. Model selection was frozen before these tests.",
     }
@@ -493,6 +503,8 @@ def make_plots(out, rna, drugs, efficiency):
         color = COLORS[frame.placement.iloc[0]]
         offset = (index - (len(arms) - 1) / 2) * width
         label = LABELS[frame.placement.iloc[0]]
+        if not frame.selection_retention_pass.all():
+            label += " *"
         for axis, metric in zip(axes, ["r", "mse"]):
             values = frame[f"{metric}_mean"].to_numpy()
             error = np.array(
@@ -549,8 +561,13 @@ def make_plots(out, rna, drugs, efficiency):
         bbox_to_anchor=(0.5, -0.02),
     )
     fig.suptitle(
-        "Held-out RNA transfer: validation-selected checkpoints\nPoints are training-seed means; bars span their range",
-        fontsize=13,
+        "Held-out RNA transfer: validation-selected checkpoints\nPoints are training-seed means; bars span their range"
+        + (
+            "\n* Exploratory: no common validation milestone passed retention"
+            if not chosen.selection_retention_pass.all()
+            else ""
+        ),
+        fontsize=12,
     )
     fig.tight_layout(rect=(0, 0.03, 1, 1))
     fig.savefig(out / "rna_transfer.png", dpi=220, bbox_inches="tight")
@@ -597,6 +614,13 @@ def make_plots(out, rna, drugs, efficiency):
             range(len(model_arms)),
             [
                 LABELS[drugs.loc[drugs.arm.eq(arm), "placement"].iloc[0]]
+                + (
+                    " *"
+                    if not drugs.loc[
+                        drugs.arm.eq(arm), "selection_retention_pass"
+                    ].all()
+                    else ""
+                )
                 for arm in model_arms
             ],
             rotation=20,
@@ -607,7 +631,12 @@ def make_plots(out, rna, drugs, efficiency):
         axis.spines[["top", "right"]].set_visible(False)
     axes[0, 0].set_ylabel("Spearman rho with measured singleton phenotypes")
     fig.suptitle(
-        "GenTonik ranking under all three frozen readouts\nCircle: validation selected; square: 4,000 updates. Bars span training seeds.",
+        "GenTonik ranking under all three frozen readouts\nCircle: validation selected; square: 4,000 updates. Bars span training seeds."
+        + (
+            "\n* Exploratory: no common validation milestone passed retention"
+            if not drugs.selection_retention_pass.all()
+            else ""
+        ),
         fontsize=12,
     )
     fig.tight_layout()
