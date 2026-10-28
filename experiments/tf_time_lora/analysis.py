@@ -15,6 +15,102 @@ COLORS = {
 }
 
 
+def pilot_figures(spec):
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    import pandas as pd
+    from gentonik.io import atomic_json
+
+    table = pd.DataFrame(spec["rows"])
+    assert len(table) == table.id.nunique() == 27
+    for column in ["rank", "lr", "new_mse"]:
+        table[column] = pd.to_numeric(table[column], errors="coerce")
+    table["passed"] = table.retention_pass.astype(str).str.lower().eq("true")
+    full = table.loc[table.placement.eq("full") & table.passed]
+    reference = float(full.new_mse.min())
+    fig, axes = plt.subplots(1, 3, figsize=(12, 4), sharey=True)
+    placements = [
+        ("cross", "Attention across cells"),
+        ("both", "Both attention axes"),
+        ("cross_io", "Across-cell attention + input/decoder"),
+    ]
+    colors = {2e-5: "#275dad", 1e-4: "#2b8a78"}
+    for axis, (placement, title) in zip(axes, placements):
+        subset = table.loc[table.placement.eq(placement)]
+        for lr, color in colors.items():
+            rows = subset.loc[subset.lr.eq(lr)].sort_values("rank")
+            axis.plot(
+                rows["rank"],
+                rows.new_mse,
+                color=color,
+                linewidth=1.5,
+                label=f"LR {lr:g}",
+            )
+            for row in rows.itertuples():
+                axis.scatter(
+                    row.rank,
+                    row.new_mse,
+                    s=48,
+                    edgecolors=color,
+                    facecolors=color if row.passed else "white",
+                    linewidth=1.5,
+                    zorder=3,
+                )
+        axis.axhline(
+            reference,
+            color="#333333",
+            linestyle="--",
+            linewidth=1,
+            label="Full FT, selected LR",
+        )
+        axis.axhline(
+            spec["released_score"],
+            color="#999999",
+            linestyle=":",
+            linewidth=1,
+            label="Released",
+        )
+        if spec.get("source_mean_score") is not None:
+            axis.axhline(
+                spec["source_mean_score"],
+                color="#a5692c",
+                linestyle="-.",
+                linewidth=1,
+                label="Source mean",
+            )
+        axis.set_xscale("log", base=2)
+        axis.set_xticks([8, 32, 128], ["8", "32", "128"])
+        axis.set_xlabel("LoRA rank on wide layers")
+        axis.set_title(title, fontsize=10)
+        axis.spines[["top", "right"]].set_visible(False)
+        axis.grid(axis="y", alpha=0.15)
+    axes[0].set_ylabel("Weighted new-family validation relative MSE")
+    handles, labels = axes[0].get_legend_handles_labels()
+    fig.legend(
+        handles,
+        labels,
+        loc="lower center",
+        ncol=3 if spec.get("source_mean_score") is not None else 4,
+        bbox_to_anchor=(0.5, -0.08),
+        frameon=False,
+        fontsize=9,
+    )
+    fig.suptitle(
+        "500-update pilot sweep\nFilled markers pass retention gates; lower validation MSE is better",
+        fontsize=12,
+    )
+    fig.tight_layout()
+    out = ROOT / "report"
+    out.mkdir(exist_ok=True)
+    fig.savefig(out / "pilot_sweep.png", dpi=240, bbox_inches="tight")
+    plt.close(fig)
+    result = {"status": "complete", "pilot_arms": 27, "file": "pilot_sweep.png"}
+    atomic_json(out / "pilot_figures.json", result)
+    return result
+
+
 def diagnostic_figures(spec):
     import matplotlib
 
@@ -214,6 +310,7 @@ def summarize(spec):
             mse_max=("mse_over_unchanged", "max"),
             effect_sign_mean=("top100_effect_sign_accuracy", "mean"),
             checkpoints=("id", "nunique"),
+            finite_correlations=("delta_pearson", "count"),
         )
         .reset_index()
     )
@@ -265,6 +362,7 @@ def summarize(spec):
             rho_max=("ensemble_rho", "max"),
             top4_overlap_mean=("ensemble_top4_overlap", "mean"),
             checkpoints=("id", "nunique"),
+            finite_rankings=("ensemble_rho", "count"),
         )
         .reset_index()
     )
@@ -400,7 +498,7 @@ def make_plots(out, rna, drugs, efficiency):
             axis.errorbar(
                 values,
                 positions + offset,
-                xerr=error,
+                xerr=np.maximum(error, 0),
                 fmt="o",
                 color=color,
                 markersize=4,
@@ -474,7 +572,10 @@ def make_plots(out, rna, drugs, efficiency):
                 axis.errorbar(
                     index + offset,
                     row.rho_mean,
-                    yerr=[[row.rho_mean - row.rho_min], [row.rho_max - row.rho_mean]],
+                    yerr=[
+                        [max(0, row.rho_mean - row.rho_min)],
+                        [max(0, row.rho_max - row.rho_mean)],
+                    ],
                     fmt=marker,
                     capsize=3,
                     color=COLORS[row.placement],

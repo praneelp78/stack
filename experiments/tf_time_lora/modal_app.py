@@ -116,16 +116,17 @@ def execute(spec):
         elif kind in {
             "checkpoint_audit",
             "metric_audit",
+            "study_audit",
             "unit_tests",
             "compare_parent",
         }:
             from tf_time_lora import verification
 
             result = getattr(verification, kind)(spec)
-        elif kind == "diagnostic_figures":
-            from tf_time_lora.analysis import diagnostic_figures
+        elif kind in {"diagnostic_figures", "pilot_figures"}:
+            from tf_time_lora import analysis
 
-            result = diagnostic_figures(spec)
+            result = getattr(analysis, kind)(spec)
         elif kind == "summarize":
             from tf_time_lora.analysis import summarize
 
@@ -309,7 +310,9 @@ def main(specs: str = "", action: str = "submit", ledger: str = ""):
         "inventory",
         "metadata",
         "metric_audit",
+        "study_audit",
         "diagnostic_figures",
+        "pilot_figures",
         "unit_tests",
         "summarize",
     }
