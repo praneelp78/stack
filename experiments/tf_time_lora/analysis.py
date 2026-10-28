@@ -1,5 +1,7 @@
 """Scientific plots from retained numerical artifacts."""
 
+import re
+
 from .common import ROOT
 
 COLORS = {
@@ -14,11 +16,21 @@ COLORS = {
     "released": "#9aa0a6",
 }
 LABELS = {
-    "cross": "Across-cell r8",
-    "cross_io": "Across-cell + I/O r128",
+    "cross": "Across-cell attention",
+    "both": "Both attention axes",
+    "cross_io": "Attention + I/O",
+    "within": "Within-cell attention",
+    "io": "Input/decoder",
+    "all": "All groups",
+    "heads": "ICL additions",
     "full": "Full FT",
     "released": "Released",
 }
+
+
+def arm_label(placement, arm):
+    rank = re.search(r"_r(\d+)_lr", arm)
+    return LABELS[placement] + (f" r{rank.group(1)}" if rank else "")
 
 
 def pilot_figures(spec):
@@ -502,7 +514,7 @@ def make_plots(out, rna, drugs, efficiency):
         frame = chosen.loc[chosen.arm.eq(arm)].set_index("dataset").loc[datasets]
         color = COLORS[frame.placement.iloc[0]]
         offset = (index - (len(arms) - 1) / 2) * width
-        label = LABELS[frame.placement.iloc[0]]
+        label = arm_label(frame.placement.iloc[0], arm)
         if not frame.selection_retention_pass.all():
             label += " *"
         for axis, metric in zip(axes, ["r", "mse"]):
@@ -613,7 +625,7 @@ def make_plots(out, rna, drugs, efficiency):
         axis.set_xticks(
             range(len(model_arms)),
             [
-                LABELS[drugs.loc[drugs.arm.eq(arm), "placement"].iloc[0]]
+                arm_label(drugs.loc[drugs.arm.eq(arm), "placement"].iloc[0], arm)
                 + (
                     " *"
                     if not drugs.loc[
@@ -736,7 +748,7 @@ def learning_figures(out, models):
                 stats["mean"],
                 color=color,
                 linewidth=2,
-                label=LABELS[placement],
+                label=arm_label(placement, arm),
             )
             axis.fill_between(
                 stats.index.to_numpy(),
