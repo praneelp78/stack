@@ -13,6 +13,12 @@ COLORS = {
     "full": "#252a34",
     "released": "#9aa0a6",
 }
+LABELS = {
+    "cross": "Across-cell r8",
+    "cross_io": "Across-cell + I/O r128",
+    "full": "Full FT",
+    "released": "Released",
+}
 
 
 def pilot_figures(spec):
@@ -486,7 +492,7 @@ def make_plots(out, rna, drugs, efficiency):
         frame = chosen.loc[chosen.arm.eq(arm)].set_index("dataset").loc[datasets]
         color = COLORS[frame.placement.iloc[0]]
         offset = (index - (len(arms) - 1) / 2) * width
-        label = "Released" if arm == "released" else frame.placement.iloc[0]
+        label = LABELS[frame.placement.iloc[0]]
         for axis, metric in zip(axes, ["r", "mse"]):
             values = frame[f"{metric}_mean"].to_numpy()
             error = np.array(
@@ -590,9 +596,7 @@ def make_plots(out, rna, drugs, efficiency):
         axis.set_xticks(
             range(len(model_arms)),
             [
-                "Released"
-                if arm == "released"
-                else drugs.loc[drugs.arm.eq(arm), "placement"].iloc[0]
+                LABELS[drugs.loc[drugs.arm.eq(arm), "placement"].iloc[0]]
                 for arm in model_arms
             ],
             rotation=20,
@@ -623,7 +627,12 @@ def make_plots(out, rna, drugs, efficiency):
         values = stats[metric] / (1e6 if metric == "trainable_parameters" else 1)
         axis.bar(stats.index, values, color=[COLORS[name] for name in stats.index])
         axis.set_title(title, fontsize=11)
-        axis.tick_params(axis="x", rotation=20)
+        axis.set_xticks(
+            range(len(stats)),
+            [LABELS[name] for name in stats.index],
+            rotation=20,
+            fontsize=8,
+        )
         axis.spines[["top", "right"]].set_visible(False)
     fig.suptitle(
         "Measured resource use on H100; identical data and update budgets", fontsize=13
@@ -694,7 +703,11 @@ def learning_figures(out, models):
             placement = group.placement.iloc[0]
             color = COLORS[placement]
             axis.plot(
-                stats.index, stats["mean"], color=color, linewidth=2, label=placement
+                stats.index,
+                stats["mean"],
+                color=color,
+                linewidth=2,
+                label=LABELS[placement],
             )
             axis.fill_between(
                 stats.index.to_numpy(),
