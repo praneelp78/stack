@@ -127,13 +127,20 @@ def summarize(spec):
     roster = [reference, *models]
     pd.DataFrame(roster).to_csv(out / "model_roster.csv", index=False)
     frames = []
+    checkpoint_manifest = []
     for model in roster:
         pieces = []
+        hashes = set()
         for panel in ["new", "old_neural", "old_perturb", "arlotta"]:
             path = (
                 ROOT / "benchmarks" / (model["id"] + "_test_" + panel) / "metrics.csv"
             )
             frame = pd.read_csv(path)
+            hashes.add(
+                json.loads((path.parent / "COMPLETE.json").read_text())[
+                    "checkpoint_sha256"
+                ]
+            )
             frame["panel"] = panel
             pieces.append(frame)
         frame = pd.concat(pieces, ignore_index=True)
@@ -143,6 +150,23 @@ def summarize(spec):
             frame[key] = model[key]
         frame["roles"] = ",".join(model["roles"])
         frames.append(frame)
+        assert len(hashes) == 1, f"Checkpoint changed across panels: {model['id']}"
+        checkpoint_manifest.append(
+            {
+                "model": model["id"],
+                "checkpoint": model["checkpoint"],
+                "sha256": next(iter(hashes)),
+                "roles": ",".join(model["roles"]),
+                "training_id": model.get("training_id", ""),
+                "step": model["step"],
+                "adapter": f"/results/training/{model['training_id']}/adapter{model['step']:05d}.pt"
+                if model["placement"] not in {"full", "released"}
+                else "",
+            }
+        )
+    pd.DataFrame(checkpoint_manifest).to_csv(
+        out / "checkpoint_manifest.csv", index=False
+    )
     raw = pd.concat(frames, ignore_index=True)
     raw.to_csv(out / "rna_task_metrics.csv", index=False)
     numeric = [

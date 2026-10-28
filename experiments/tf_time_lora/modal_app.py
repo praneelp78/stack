@@ -79,9 +79,27 @@ def execute(spec):
     started = time.monotonic()
     source_snapshot = None
     try:
-        source_snapshot = json.loads(
+        manifest = json.loads(
             Path("/opt/tf_time_lora/source_manifest.json").read_text()
-        )["snapshot"]
+        )
+        source_snapshot = manifest["snapshot"]
+        roots = {
+            "src": Path("/opt/fork/src"),
+            "tests": Path("/opt/lora_tests"),
+            "tf_time_lora": Path("/opt/tf_time_lora"),
+            "gentonik": Path("/opt/gentonik"),
+        }
+        for filename, expected_hash in manifest["files"].items():
+            if filename == "study_config.json":
+                path = Path("/opt/tf_time_lora/study_config.json")
+            else:
+                root, relative = filename.split("/", 1)
+                path = roots[root] / relative
+            actual_hash = hashlib.sha256(path.read_bytes()).hexdigest()
+            if actual_hash != expected_hash:
+                raise RuntimeError(
+                    f"Runtime source differs from frozen manifest: {filename}"
+                )
         kind = spec["kind"]
         if kind == "train":
             from tf_time_lora.training import train

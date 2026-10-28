@@ -353,6 +353,20 @@ def train(spec, commit):
                 **{k: float(np.mean([r[k] for r in pieces])) for k in pieces[0]},
             }
         )
+        if step % 50 == 0:
+            recent = [row for row in history if row["split"] == "train"][-50:]
+            atomic_json(
+                out / "heartbeat.json",
+                {
+                    "step": step,
+                    "updates": updates,
+                    "teacher_updates": teacher_updates,
+                    "mean_recent_training_loss": sum(row["loss"] for row in recent)
+                    / len(recent),
+                    "seconds": time.monotonic() - started,
+                },
+            )
+            commit()
         if step % int(spec.get("validate_every", 250)) == 0 or step == updates:
             rows = validate(step)
             history.extend(rows)
