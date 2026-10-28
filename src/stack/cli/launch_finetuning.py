@@ -318,6 +318,7 @@ def main() -> None:
     if args.lora_config:
         with open(args.lora_config) as handle:
             lora_config = json.load(handle)
+    adapter_options = {"lora_config": lora_config} if args.lora_config else {}
 
     # Initialize model - either from checkpoint or from scratch
     if args.checkpoint_path:
@@ -332,7 +333,7 @@ def main() -> None:
             weight_decay=args.weight_decay,
             scheduler_config=scheduler_cfg,
             n_kept_cell=n_kept_cell,
-            lora_config=lora_config,
+            **adapter_options,
         )
     else:
         logging.info("Creating model from scratch (no checkpoint provided)")

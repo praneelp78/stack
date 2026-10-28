@@ -108,7 +108,9 @@ def test_native_loader_roundtrips_adapter_checkpoint(tmp_path):
         torch.testing.assert_close(value, loaded.state_dict()[key], rtol=0, atol=0)
 
 
-def test_lightning_initialization_optimizer_and_teacher_use_adapters():
+def test_lightning_initialization_optimizer_and_teacher_use_adapters(tmp_path):
+    import pytorch_lightning as pl
+
     from stack.finetune.lightning import LightningFinetunedModel
 
     config = {"n_genes": 31, "n_hidden": 3, "token_dim": 8, "n_layers": 1, "n_cells": 8}
@@ -129,3 +131,17 @@ def test_lightning_initialization_optimizer_and_teacher_use_adapters():
     expected = {id(p) for p in module.model.parameters() if p.requires_grad}
     assert actual == expected
     assert all(not p.requires_grad for p in module.teacher_model.parameters())
+    checkpoint = {
+        "state_dict": module.state_dict(),
+        "hyper_parameters": dict(module.hparams),
+        "pytorch-lightning_version": pl.__version__,
+    }
+    module.on_save_checkpoint(checkpoint)
+    path = tmp_path / "lightning_adapter.ckpt"
+    torch.save(checkpoint, path)
+    loaded = LightningFinetunedModel.load_from_checkpoint(path, strict=False)
+    assert isinstance(loaded.model.layers[0].gene_attn.qkv, LoRALinear)
+    for key, value in module.model.state_dict().items():
+        torch.testing.assert_close(
+            value, loaded.model.state_dict()[key], rtol=0, atol=0
+        )
