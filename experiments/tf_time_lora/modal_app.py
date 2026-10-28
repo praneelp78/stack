@@ -152,8 +152,24 @@ def execute(spec):
             drugs.ROOT = ROOT
             result = drugs.drug_benchmark(spec, results_volume.commit)
         elif kind == "metadata":
+            import importlib.metadata
+            import platform
+            import sys
             import tarfile
 
+            atomic_json(
+                ROOT / "runtime" / (spec["id"] + ".json"),
+                {
+                    "python": sys.version,
+                    "platform": platform.platform(),
+                    "packages": {
+                        distribution.metadata["Name"]: distribution.version
+                        for distribution in importlib.metadata.distributions()
+                        if distribution.metadata["Name"]
+                    },
+                    "scope": "Metadata worker using the same cached dependency image as training/inference; editable source is recorded separately by snapshot.",
+                },
+            )
             files = [
                 p
                 for p in ROOT.rglob("*")
