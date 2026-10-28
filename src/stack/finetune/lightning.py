@@ -9,6 +9,7 @@ import pytorch_lightning as pl
 import torch
 
 from ..model_finetune import ICL_FinetunedModel
+from .lora import apply_lora, merged_state_dict, update_dense_teacher
 
 log = logging.getLogger(__name__)
 
@@ -24,12 +25,14 @@ class LightningFinetunedModel(pl.LightningModule):
         weight_decay: float = 1e-4,
         scheduler_config: Optional[Dict[str, Any]] = None,
         n_kept_cell: int = 96,
+        lora_config: Optional[Dict[str, Any]] = None,
     ) -> None:
         super().__init__()
         self.save_hyperparameters()
 
         self.model = ICL_FinetunedModel(**model_config)
         self.teacher_model = ICL_FinetunedModel(**model_config)
+        self.adapter_summary = apply_lora(self.model, lora_config) if lora_config is not None else None
 
         log.info("Freezing teacher model parameters for distillation")
         self.teacher_model.eval()
@@ -51,10 +54,11 @@ class LightningFinetunedModel(pl.LightningModule):
     # ------------------------------------------------------------------
     def on_fit_start(self) -> None:  # type: ignore[override]
         log.info("`on_fit_start` hook called. Syncing teacher model weights from student...")
-        self.teacher_model.load_state_dict(self.model.state_dict())
+        student_state = merged_state_dict(self.model)
+        self.teacher_model.load_state_dict(student_state)
 
         log.info("VERIFYING teacher weights against student weights...")
-        student_param = self.model.layers[0].cell_attn.qkv.weight
+        student_param = student_state['layers.0.cell_attn.qkv.weight']
         teacher_param = self.teacher_model.layers[0].cell_attn.qkv.weight
 
         if torch.equal(student_param, teacher_param):
@@ -210,7 +214,10 @@ class LightningFinetunedModel(pl.LightningModule):
         return {'test_loss': total_loss}
 
     def configure_optimizers(self):  # type: ignore[override]
-        optimizer = torch.optim.AdamW(self.model.parameters(), lr=self.learning_rate, weight_decay=self.weight_decay)
+        optimizer = torch.optim.AdamW(
+            (p for p in self.model.parameters() if p.requires_grad),
+            lr=self.learning_rate, weight_decay=self.weight_decay,
+        )
         config: Dict[str, Any] = {'optimizer': optimizer}
 
         if not self.scheduler_config:
@@ -276,11 +283,7 @@ class LightningFinetunedModel(pl.LightningModule):
     def _ema_update_teacher(self):
         ema = float(self.teacher_ema_decay)
 
-        for t, s in zip(self.teacher_model.parameters(), self.model.parameters()):
-            t.data.mul_(ema).add_(s.data, alpha=1.0 - ema)
-
-        for t_buf, s_buf in zip(self.teacher_model.buffers(), self.model.buffers()):
-            t_buf.copy_(s_buf)
+        update_dense_teacher(self.teacher_model, self.model, ema)
 
     @torch.no_grad()
     def on_before_optimizer_step(self, optimizer):

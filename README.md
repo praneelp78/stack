@@ -91,6 +91,27 @@ uv run stack-finetune [args...]
 python -m stack.cli.launch_finetuning [args...]
 ```
 
+### Group-specific LoRA fine-tuning
+
+Group-specific LoRA fine-tuning is available with an additional JSON config:
+
+```bash
+stack-finetune --config configs/finetuning/ft_parsecg.yaml \
+    --lora_config configs/finetuning/lora_attention.json
+```
+
+The supported groups are `inter_cell`, `intra_cell`, `token_mlp`, `encoder`, and
+`decoder`. Omitted groups stay frozen. Stack's `gene_attn` implements attention
+across cells; `cell_attn` implements attention across gene-module tokens within
+each cell. The two branches have different widths and can use different ranks.
+The query embedding and confidence classifier remain trainable by default.
+
+LoRA retains the native losses and a dense EMA teacher. Teacher updates average
+the effective student weights, including each low-rank product. Saved Lightning
+checkpoints retain the adapter configuration and can be loaded through
+`load_model_from_checkpoint`; `stack.finetune.lora.merged_state_dict` exports
+ordinary dense Stack weights for inference.
+
 ### Running Stack with configuration files
 
 Both `launch_training.py` and `launch_finetuning.py` accept a `--config` flag that points to a YAML or JSON file. Any command line

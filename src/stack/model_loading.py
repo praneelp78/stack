@@ -58,6 +58,12 @@ def load_model_from_checkpoint(
         else:
             raise ValueError(f"Unknown model class: {model_class}")
 
+        lora_config = checkpoint["hyper_parameters"].get("lora_config")
+        if lora_config is not None:
+            from .finetune.lora import apply_lora
+
+            apply_lora(model, lora_config)
+
         if "state_dict" not in checkpoint:
             raise ValueError("No state_dict found in checkpoint")
 

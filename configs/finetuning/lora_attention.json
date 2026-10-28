@@ -1,0 +1,8 @@
+{
+  "ranks": {
+    "inter_cell": 32,
+    "intra_cell": 2
+  },
+  "alpha_over_rank": 1.0,
+  "train_new_modules": true
+}

@@ -111,6 +111,7 @@ def build_parser(parents=None) -> argparse.ArgumentParser:
 
     # Checkpoint arguments
     parser.add_argument("--checkpoint_path", type=str, default=None, help="Path to pre-trained model checkpoint")
+    parser.add_argument("--lora_config", type=str, default=None, help="JSON file with group-specific LoRA ranks")
 
     # Data arguments
     parser.add_argument("--dataset_configs", type=str, nargs="+", default=None, help="Dataset configuration strings")
@@ -312,6 +313,12 @@ def main() -> None:
     # Calculate n_kept_cell from replacement_ratio
     n_kept_cell = int((1.0 - args.replacement_ratio) * args.sample_size)
 
+    # Load group-specific adapter settings independently of dataset settings.
+    lora_config = None
+    if args.lora_config:
+        with open(args.lora_config) as handle:
+            lora_config = json.load(handle)
+
     # Initialize model - either from checkpoint or from scratch
     if args.checkpoint_path:
         logging.info("Loading model from checkpoint: %s", args.checkpoint_path)
@@ -325,6 +332,7 @@ def main() -> None:
             weight_decay=args.weight_decay,
             scheduler_config=scheduler_cfg,
             n_kept_cell=n_kept_cell,
+            lora_config=lora_config,
         )
     else:
         logging.info("Creating model from scratch (no checkpoint provided)")
@@ -337,6 +345,7 @@ def main() -> None:
             weight_decay=args.weight_decay,
             scheduler_config=scheduler_cfg,
             n_kept_cell=n_kept_cell,
+            lora_config=lora_config,
         )
 
     logger = configure_logger(
