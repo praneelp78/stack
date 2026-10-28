@@ -1,0 +1,178 @@
+{
+  "run": "stack_lora_tf_time_20261028",
+  "upstream_commit": "cacc2e4b09435c3e536d46237d10b50f222dd144",
+  "source_run": "stack_tf_timing_20260929",
+  "max_concurrent_gpus": 10,
+  "initialization": "aligned",
+  "training": {
+    "kind": "train",
+    "dataset": "tf_corpus",
+    "updates": 4000,
+    "schedule_updates": 4000,
+    "warmup_updates": 50,
+    "teacher_every": 500,
+    "validate_every": 500,
+    "validation_sets_per_family": 64,
+    "microbatch": 4,
+    "accumulation": 4,
+    "seed": 0,
+    "attention_backend": "sdpa",
+    "validation_weights": {
+      "Herring": 1,
+      "Velmeshev": 1,
+      "Jerber": 1,
+      "HNOCA": 1,
+      "replay": 1,
+      "Lin2021": 1,
+      "Lin2025": 1
+    },
+    "intermediate_benchmark": {
+      "taskfiles": [
+        "tf_intervention",
+        "tf_ngn2_time",
+        "developmental",
+        "jerber",
+        "replay",
+        "hnoca"
+      ],
+      "split": "val",
+      "per_source": 2
+    },
+    "bench_steps": [
+      250,
+      500
+    ],
+    "id": "long_aligned_tf25_lr2e-05_s0",
+    "checkpoint": "aligned",
+    "weights": {
+      "Herring": 0.125,
+      "Velmeshev": 0.125,
+      "Jerber": 0.05,
+      "HNOCA": 0.2,
+      "replay": 0.25,
+      "Lin2021": 0.05,
+      "Lin2025": 0.2
+    },
+    "lr": 2e-05
+  },
+  "sweep": {
+    "placements": [
+      "inter_cell",
+      "both_attention",
+      "inter_cell_io"
+    ],
+    "ranks": [
+      8,
+      32,
+      128
+    ],
+    "learning_rates": [
+      2e-05,
+      0.0001
+    ],
+    "intra_cell_rank": 2,
+    "token_mlp_rank": 2,
+    "alpha_over_rank": 1.0,
+    "pilot_updates": 500,
+    "controls": [
+      "full_ft_lr5e-6",
+      "full_ft_lr2e-5",
+      "intra_cell_only",
+      "io_only",
+      "heads_only",
+      "all_groups_r16"
+    ],
+    "rank_revision": "Before pilot outcome inspection: full-FT spectra show median inter-cell rank90=158 at step500; rank16 captures 46% energy. Widen rank range at constant trial count."
+  },
+  "selection": {
+    "primary": "0.8 * Lin2025_neural_intervention relative MSE + 0.2 * Lin2021_NGN2_time relative MSE",
+    "retention": "mean old-neural MSE <= 1.10x aligned; replay MSE <= 1.10x aligned; replay Pearson >= .90x aligned",
+    "pilot_promotion": "best two distinct LoRA placements passing retention; if fewer pass, include best failing placement as explicitly exploratory",
+    "long_updates": 4000,
+    "training_seeds": [
+      0,
+      1,
+      2
+    ],
+    "common_steps": [
+      500,
+      1000,
+      2000,
+      3000,
+      4000
+    ],
+    "checkpoint_selection": "minimum mean validation score at a common step across seeds, among retention-passing steps; report failures if none feasible",
+    "test_or_phenotype_selection": false
+  },
+  "evaluation": {
+    "pilot": {
+      "panels": {
+        "new": {
+          "taskfiles": [
+            "tf_intervention",
+            "tf_ngn2_time"
+          ],
+          "split": "val"
+        },
+        "retention": {
+          "taskfiles": [
+            "developmental",
+            "jerber",
+            "replay",
+            "hnoca"
+          ],
+          "split": "val",
+          "per_source": 4
+        }
+      }
+    },
+    "test_panels": {
+      "new": [
+        "tf_intervention",
+        "tf_combinations",
+        "tf_schedule",
+        "tf_ngn2_time",
+        "tf_ko",
+        "tf_multiline"
+      ],
+      "old_neural": [
+        "developmental",
+        "replay",
+        "hnoca",
+        "hnoca_matched",
+        "jerber"
+      ],
+      "old_perturb": [
+        "tian",
+        "pasca",
+        "morphogens",
+        "temporal",
+        "chemical_matched"
+      ],
+      "arlotta": [
+        "arlotta"
+      ]
+    },
+    "generation_seeds": [
+      0,
+      1,
+      2
+    ],
+    "drug_readouts": "all three frozen heads; no selection",
+    "controls": [
+      "unchanged",
+      "source_mean",
+      "wrong_prompt",
+      "measured_component_additive_where_available"
+    ],
+    "validation_coverage_revision": "Before any LoRA pilot predictions: use all 15 intervention and 2 time validation tasks, plus first 4 tasks per retention source. The same 41 tasks are used at every pilot and long milestone."
+  },
+  "scope": [
+    "Same admitted raw counts, frozen splits, prompt/query construction and native loss",
+    "Read-only mount of original volume; new result volume",
+    "Dense teacher EMA of effective student weights; no factor-EMA approximation",
+    "Merged inference checkpoints plus adapters and full resume state",
+    "Preserve failed attempts; no new data recovery or phenotype fitting"
+  ],
+  "resource_revision": "Before long runs: all nine independent arm/seed jobs concurrently, plus at most one diagnostic. Inference uses separate 64-GiB host workers. Scientific budgets and selection unchanged."
+}
