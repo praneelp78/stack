@@ -246,7 +246,7 @@ def diagnostic_worker(spec):
 
 
 @app.function(
-    image=image, volumes=VOLUMES, cpu=4, memory=32768, timeout=3600, max_containers=2
+    image=image, volumes=VOLUMES, cpu=4, memory=32768, timeout=3600, max_containers=8
 )
 def cpu_worker(spec):
     return execute(spec)

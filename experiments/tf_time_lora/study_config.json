@@ -174,5 +174,6 @@
     "Merged inference checkpoints plus adapters and full resume state",
     "Preserve failed attempts; no new data recovery or phenotype fitting"
   ],
-  "resource_revision": "Before long runs: all nine independent arm/seed jobs concurrently, plus at most one diagnostic. Inference uses separate 64-GiB host workers. Scientific budgets and selection unchanged."
+  "resource_revision": "Before long runs: all nine independent arm/seed jobs concurrently, plus at most one diagnostic. Inference uses separate 64-GiB host workers. Scientific budgets and selection unchanged.",
+  "cpu_audit_resource_revision": "After baseline audits measured less than 0.5 GiB peak RSS: permit eight independent final CPU shards concurrently with the same per-worker CPU/RAM and numerical code. GPU ceiling remains ten."
 }

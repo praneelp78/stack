@@ -113,3 +113,7 @@ nine concurrent workers, with one separate diagnostic worker, within a ten-GPU
 ceiling. Training and external-test phases run sequentially. Inference uses
 64 GiB of host RAM; corpus-loading training retains the parent's 192 GiB.
 No unrelated Modal apps or data are changed.
+
+Independent final CPU audits use up to eight workers, after the baseline audit
+measured less than 0.5 GiB peak RSS. Per-worker resources and numerical checks
+stay fixed; this affects verification wall time only.
