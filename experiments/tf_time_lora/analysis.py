@@ -735,8 +735,8 @@ def learning_figures(out, models):
         axes,
         [native, measured],
         [
-            "Fixed-teacher native validation loss",
-            "Weighted new-family validation relative MSE",
+            "Fixed-teacher native\nvalidation loss",
+            "Weighted new-family validation\nrelative MSE",
         ],
     ):
         for arm, group in table.groupby("arm"):
