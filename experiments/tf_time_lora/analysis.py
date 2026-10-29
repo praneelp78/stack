@@ -779,7 +779,19 @@ def learning_figures(out, models):
         linewidth=1,
         label="Released",
     )
-    axes[1].legend(frameon=False, fontsize=9)
+    source_mean = transfer(
+        ROOT / "benchmarks/baseline_aligned_val02/metrics.csv",
+        model="other_context_mean_delta",
+    )
+    axes[1].axhline(
+        source_mean["new_mse"],
+        color="#a5692c",
+        linestyle="-.",
+        linewidth=1,
+        label="Source mean",
+    )
+    axes[1].axhline(1, color="#777777", linestyle=":", linewidth=1, label="Unchanged")
+    axes[1].legend(frameon=False, fontsize=8, ncol=2)
     fig.suptitle(
         "Native alignment loss and measured transfer validation\nBands span training seeds; stars mark the common selected step",
         fontsize=12,

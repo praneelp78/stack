@@ -24,11 +24,11 @@ def read_json(path):
     return json.loads(path.read_text())
 
 
-def transfer(path):
+def transfer(path, model="STACK"):
     grouped = defaultdict(list)
     with path.open() as handle:
         for row in csv.DictReader(handle):
-            if row["model"] == "STACK":
+            if row["model"] == model:
                 grouped[row["dataset"]].append(row)
 
     def metric(source, name):
