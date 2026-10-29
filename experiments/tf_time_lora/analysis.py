@@ -791,7 +791,13 @@ def learning_figures(out, models):
         label="Source mean",
     )
     axes[1].axhline(1, color="#777777", linestyle=":", linewidth=1, label="Unchanged")
-    axes[1].legend(frameon=False, fontsize=8, ncol=2)
+    axes[1].legend(
+        frameon=False,
+        fontsize=8,
+        ncol=2,
+        loc="upper center",
+        bbox_to_anchor=(0.5, -0.18),
+    )
     fig.suptitle(
         "Native alignment loss and measured transfer validation\nBands span training seeds; stars mark the common selected step",
         fontsize=12,

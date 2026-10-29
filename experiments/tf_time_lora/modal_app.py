@@ -131,6 +131,11 @@ def execute(spec):
             from tf_time_lora.analysis import summarize
 
             result = summarize(spec)
+        elif kind == "learning_figures":
+            from tf_time_lora.analysis import learning_figures
+
+            learning_figures(ROOT / "report", spec["models"])
+            result = {"status": "complete", "files": ["learning_curves.png"]}
         elif kind == "benchmark":
             from gentonik.io import sha256_file
             from gentonik.neural_adaptation.models import (
@@ -331,6 +336,7 @@ def main(specs: str = "", action: str = "submit", ledger: str = ""):
         "pilot_figures",
         "unit_tests",
         "summarize",
+        "learning_figures",
     }
     for spec in rows:
         kind = spec["kind"]
